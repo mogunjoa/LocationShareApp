@@ -4,6 +4,15 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("jenri.keystore")
+            storePassword = "123123"
+            keyAlias = "androiddebug"
+            keyPassword = "123123"
+        }
+    }
+
     namespace = "com.mogun.jenri"
     compileSdk = 34
 
@@ -51,8 +60,11 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.appcompat)
 
+    implementation(libs.v2.user)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

@@ -1,7 +1,9 @@
 package com.mogun.jenri
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.kakao.sdk.common.util.Utility
 import com.mogun.jenri.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -12,5 +14,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+
+        startActivity(Intent(this, LoginActivity::class.java))
     }
 }
