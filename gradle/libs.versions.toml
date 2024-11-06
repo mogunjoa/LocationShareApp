@@ -2,6 +2,7 @@
 agp = "8.6.1"
 appcompat = "1.7.0"
 constraintlayout = "2.2.0"
+firebaseBom = "33.5.1"
 kotlin = "1.9.0"
 coreKtx = "1.13.0"
 junit = "4.13.2"
@@ -11,11 +12,13 @@ lifecycleRuntimeKtx = "2.8.7"
 material = "1.12.0"
 v2User = "2.20.6"
 activity = "1.8.0"
+playServicesMaps = "19.0.0"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -24,6 +27,7 @@ androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit
 material = { module = "com.google.android.material:material", version.ref = "material" }
 v2-user = { module = "com.kakao.sdk:v2-user", version.ref = "v2User" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

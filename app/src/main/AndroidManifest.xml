@@ -14,11 +14,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.JenRi"
         tools:targetApi="31">
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
         <activity
             android:name=".LoginActivity"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".MapActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.JenRi">
