@@ -37,7 +37,6 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.mogun.jenri.databinding.ActivityMapBinding
@@ -98,6 +97,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerC
 
         requestLocationPermission()
         setUpEmojiAnimationView()
+        setUpCurrentLocationView()
         setUpFirebaseDatabase()
     }
 
@@ -136,16 +136,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerC
             Looper.getMainLooper()
         )
 
-        fusedLocationClient.lastLocation.addOnSuccessListener {
-            googleMap.animateCamera(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(
-                        it.latitude,
-                        it.longitude
-                    ), 15f
-                )
-            )
-        }
+        // 현재 위치로 이동
+        moveLastLocation()
     }
 
     private fun requestLocationPermission() {
@@ -202,9 +194,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerC
 
             })
 
-        Firebase.database.reference.child("Emoji").child(Firebase.auth.currentUser?.uid ?:"")
-            .addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
+        Firebase.database.reference.child("Emoji").child(Firebase.auth.currentUser?.uid ?: "")
+            .addChildEventListener(object : ChildEventListener {
+                override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {}
+
+                override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
                     binding.centerLottieAnimationView.playAnimation()
                     binding.centerLottieAnimationView.animate()
                         .scaleX(7f)
@@ -218,8 +212,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerC
                         }.start()
                 }
 
-                override fun onCancelled(error: DatabaseError) {}
+                override fun onChildRemoved(snapshot: DataSnapshot) {}
 
+                override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+
+                override fun onCancelled(error: DatabaseError) {}
             })
     }
 
@@ -287,14 +284,47 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerC
         }
     }
 
+    private fun setUpCurrentLocationView() {
+        binding.currentLocationButton.setOnClickListener {
+            trackingPersonId = "" // 트랙킹 해제
+            moveLastLocation()
+        }
+    }
+
+    private fun moveLastLocation() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestLocationPermission()
+            return
+        }
+
+        fusedLocationClient.lastLocation.addOnSuccessListener {
+            googleMap.moveCamera(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(
+                        it.latitude,
+                        it.longitude
+                    ), 15f
+                )
+            )
+        }
+    }
+
     private fun setUpEmojiAnimationView() {
         binding.emojiLottieAnimationView.setOnClickListener {
-            if(trackingPersonId.isEmpty()) return@setOnClickListener
+            if (trackingPersonId.isEmpty()) return@setOnClickListener
 
             val lastEmoji = mutableMapOf<String, Any>()
             lastEmoji["type"] = "drive"
             lastEmoji["lastModifier"] = System.currentTimeMillis()
-            Firebase.database.reference.child("Emoji").child(trackingPersonId).updateChildren(lastEmoji)
+            Firebase.database.reference.child("Emoji").child(trackingPersonId)
+                .updateChildren(lastEmoji)
 
             binding.emojiLottieAnimationView.playAnimation()
             binding.dummyLottieAnimationView.animate()
