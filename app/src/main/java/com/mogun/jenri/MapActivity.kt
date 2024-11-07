@@ -3,6 +3,7 @@ package com.mogun.jenri
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.Looper
@@ -10,6 +11,12 @@ import android.provider.Settings
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -20,23 +27,28 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.ktx.database
 import com.google.firebase.ktx.Firebase
 import com.mogun.jenri.databinding.ActivityMapBinding
 
-class MapActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapActivity : AppCompatActivity(), OnMapReadyCallback, GoogleMap.OnMarkerClickListener {
 
     private lateinit var binding: ActivityMapBinding
     private lateinit var googleMap: GoogleMap
     private lateinit var fusedLocationClient: FusedLocationProviderClient
 
+    private var trackingPersonId: String = ""
     private val markerMap = hashMapOf<String, Marker>()
 
     private val locationPermissionRequest = registerForActivityResult(
@@ -84,8 +96,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-
         requestLocationPermission()
+        setUpEmojiAnimationView()
         setUpFirebaseDatabase()
     }
 
@@ -153,7 +165,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     val uid = person.uid ?: return
 
                     if (markerMap[uid] == null) {
-                        markerMap[uid] = makeNewMarker(person, uid)?: return
+                        markerMap[uid] = makeNewMarker(person, uid) ?: return
                     }
                 }
 
@@ -162,11 +174,22 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     val uid = person.uid ?: return
 
                     if (markerMap[uid] == null) {
-                        markerMap[uid] = makeNewMarker(person, uid)?: return
+                        markerMap[uid] = makeNewMarker(person, uid) ?: return
                     } else {
                         markerMap[uid]?.position = LatLng(
                             person.latitude ?: 0.0,
                             person.longitude ?: 0.0
+                        )
+                    }
+
+                    if (uid == trackingPersonId) {
+                        googleMap.animateCamera(
+                            CameraUpdateFactory.newCameraPosition(
+                                CameraPosition.builder()
+                                    .target(LatLng(person.latitude ?: 0.0, person.longitude ?: 0.0))
+                                    .zoom(16f)
+                                    .build()
+                            )
                         )
                     }
                 }
@@ -174,6 +197,26 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 override fun onChildRemoved(snapshot: DataSnapshot) {}
 
                 override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+
+                override fun onCancelled(error: DatabaseError) {}
+
+            })
+
+        Firebase.database.reference.child("Emoji").child(Firebase.auth.currentUser?.uid ?:"")
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    binding.centerLottieAnimationView.playAnimation()
+                    binding.centerLottieAnimationView.animate()
+                        .scaleX(7f)
+                        .scaleY(7f)
+                        .alpha(0.3f)
+                        .setDuration(binding.centerLottieAnimationView.duration)
+                        .withEndAction {
+                            binding.centerLottieAnimationView.scaleX = 0f
+                            binding.centerLottieAnimationView.scaleY = 0f
+                            binding.centerLottieAnimationView.alpha = 1f
+                        }.start()
+                }
 
                 override fun onCancelled(error: DatabaseError) {}
 
@@ -191,6 +234,41 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 .title(person.name.orEmpty())
         ) ?: return null
 
+        marker.tag = uid
+
+        Glide.with(this).asBitmap()
+            .load(person.profilePhoto)
+            .transform(RoundedCorners(60))
+            .override(200)
+            .listener(object : RequestListener<Bitmap> {
+                override fun onResourceReady(
+                    resource: Bitmap,
+                    model: Any,
+                    target: Target<Bitmap>?,
+                    dataSource: DataSource,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    resource.let {
+                        runOnUiThread {
+                            marker.setIcon(
+                                BitmapDescriptorFactory.fromBitmap(
+                                    resource
+                                )
+                            )
+                        }
+                        return true
+                    }
+                }
+
+                override fun onLoadFailed(
+                    e: GlideException?,
+                    model: Any?,
+                    target: Target<Bitmap>,
+                    isFirstResource: Boolean
+                ): Boolean {
+                    return false
+                }
+            }).submit()
         return marker
     }
 
@@ -200,6 +278,42 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // 최소, 최대 줌 레벨 설정
         googleMap.setMaxZoomPreference(20.0f)
         googleMap.setMinZoomPreference(10.0f)
+
+        googleMap.setOnMarkerClickListener(this)
+
+        // 트랙킹 해제
+        googleMap.setOnMapClickListener {
+            trackingPersonId = ""
+        }
+    }
+
+    private fun setUpEmojiAnimationView() {
+        binding.emojiLottieAnimationView.setOnClickListener {
+            if(trackingPersonId.isEmpty()) return@setOnClickListener
+
+            val lastEmoji = mutableMapOf<String, Any>()
+            lastEmoji["type"] = "drive"
+            lastEmoji["lastModifier"] = System.currentTimeMillis()
+            Firebase.database.reference.child("Emoji").child(trackingPersonId).updateChildren(lastEmoji)
+
+            binding.emojiLottieAnimationView.playAnimation()
+            binding.dummyLottieAnimationView.animate()
+                .scaleX(3f)
+                .scaleY(3f)
+                .alpha(0f)
+                .withStartAction {
+                    binding.dummyLottieAnimationView.scaleX = 1f
+                    binding.dummyLottieAnimationView.scaleY = 1f
+                    binding.dummyLottieAnimationView.alpha = 1f
+                }
+                .withEndAction {
+                    binding.dummyLottieAnimationView.scaleX = 1f
+                    binding.dummyLottieAnimationView.scaleY = 1f
+                    binding.dummyLottieAnimationView.alpha = 1f
+                }.start()
+        }
+
+//        binding.centerLottieAnimationView.speed = 3f
     }
 
     private fun goToAppSettings(activity: AppCompatActivity) {
@@ -207,5 +321,14 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             data = Uri.fromParts("package", activity.packageName, null)
         }
         activity.startActivity(intent)
+    }
+
+    override fun onMarkerClick(marker: Marker): Boolean {
+        trackingPersonId = marker.tag as? String ?: ""
+
+        val bottomSheetBehavior = BottomSheetBehavior.from(binding.emojiBottomSheetLayout)
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+
+        return false
     }
 }

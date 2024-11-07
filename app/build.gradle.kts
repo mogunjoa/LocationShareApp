@@ -69,7 +69,13 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.database.ktx)
 
+    // google map location
     implementation(libs.play.services.location)
+
+    // glide
+    implementation(libs.glide)
+
+    implementation(libs.lottie)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
